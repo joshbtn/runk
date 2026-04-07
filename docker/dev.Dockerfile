@@ -4,9 +4,9 @@ FROM golang:1.24-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
+        curl \
         git \
         make \
-        runc \
         bash \
     && rm -rf /var/lib/apt/lists/*
 

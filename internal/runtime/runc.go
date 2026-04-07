@@ -64,7 +64,7 @@ func ensureAptCompatibility(rootfs string) error {
 	}
 
 	aptCfgPath := filepath.Join(aptDir, "99-runk-rootless")
-	content := []byte("Acquire::Sandbox::User \"root\";\n")
+	content := []byte("APT::Sandbox::User \"root\";\nAcquire::Sandbox::User \"root\";\n")
 	if err := os.WriteFile(aptCfgPath, content, 0o644); err != nil {
 		return fmt.Errorf("write apt compatibility file %q: %w", aptCfgPath, err)
 	}

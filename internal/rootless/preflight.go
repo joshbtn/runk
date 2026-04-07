@@ -17,7 +17,7 @@ type PreflightResult struct {
 
 func Preflight(cfg config.Config) (PreflightResult, error) {
 	if _, err := exec.LookPath(cfg.RuntimePath); err != nil {
-		return PreflightResult{}, fmt.Errorf("runc not found (%s): %w", cfg.RuntimePath, err)
+		return PreflightResult{}, fmt.Errorf("runtime not found (%s): %w (hint: run 'make runc-install' to provision sidecar)", cfg.RuntimePath, err)
 	}
 
 	if runtime.GOOS != "linux" {

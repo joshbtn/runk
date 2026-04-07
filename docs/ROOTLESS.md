@@ -35,7 +35,8 @@ To keep the PoC usable, runk automatically writes this file inside the container
 
 With content:
 
-- `Acquire::Sandbox::User "root";`
+- `APT::Sandbox::User "root";`
+- `Acquire::Sandbox::User "root";` (compatibility fallback)
 
 This keeps package signature verification in place but disables apt's privilege-drop sandbox user inside the container.
 
@@ -51,3 +52,13 @@ To improve package-manager networking reliability in rootless runs, runk bind-mo
 
 - This is a PoC and does not implement full runtime parity with Docker or Podman.
 - Rootless cgroup delegation is not fully managed in this milestone.
+
+## Runtime binary sourcing
+
+- `runk` executes an external OCI runtime binary (`runc`) and does not link it as a library.
+- Development and local builds can provision a sidecar runtime via `make runc-install`.
+- Default runtime resolution uses this order:
+   1. `--runtime`
+   2. `RUNK_RUNTIME`
+   3. sidecar `runc` next to the `runk` executable
+   4. `runc` on `PATH`

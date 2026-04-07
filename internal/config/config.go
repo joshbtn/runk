@@ -26,7 +26,8 @@ func Parse(args []string) (Config, []string, error) {
 	}
 
 	fs.StringVar(&cfg.DataRoot, "data-root", defaultRoot, "runk data root")
-	fs.StringVar(&cfg.RuntimePath, "runtime", "runc", "OCI runtime binary path")
+	defaultRuntime := defaultRuntimePath()
+	fs.StringVar(&cfg.RuntimePath, "runtime", defaultRuntime, "OCI runtime binary path")
 	fs.StringVar(&cfg.NetworkMode, "network", "host", "network mode: host|none|slirp4netns")
 	fs.BoolVar(&cfg.StrictRootless, "strict-rootless", false, "disable single-UID fallback")
 
@@ -41,6 +42,22 @@ func Parse(args []string) (Config, []string, error) {
 	}
 
 	return cfg, fs.Args(), nil
+}
+
+func defaultRuntimePath() string {
+	if p := os.Getenv("RUNK_RUNTIME"); p != "" {
+		return p
+	}
+
+	exe, err := os.Executable()
+	if err == nil {
+		sidecar := filepath.Join(filepath.Dir(exe), "runc")
+		if st, statErr := os.Stat(sidecar); statErr == nil && !st.IsDir() {
+			return sidecar
+		}
+	}
+
+	return "runc"
 }
 
 func defaultDataRoot() (string, error) {
