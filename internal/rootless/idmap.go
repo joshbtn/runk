@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"strconv"
 	"strings"
@@ -29,14 +30,23 @@ func ResolveIDMap(strict bool) (IDMap, string, error) {
 	gidStart, gidCount, gidOK := parseSubIDFile("/etc/subgid", u.Username)
 
 	if uidOK && gidOK {
-		size := min(uidCount, gidCount)
-		if size < 1 {
-			return IDMap{}, "", fmt.Errorf("invalid subid range for user %q", u.Username)
+		if hasIDMapHelpers() {
+			size := min(uidCount, gidCount)
+			if size < 1 {
+				return IDMap{}, "", fmt.Errorf("invalid subid range for user %q", u.Username)
+			}
+			if size > 65536 {
+				size = 65536
+			}
+			return IDMap{UIDHostStart: uidStart, GIDHostStart: gidStart, Size: size, UsingSubIDs: true}, "", nil
 		}
-		if size > 65536 {
-			size = 65536
+
+		if strict {
+			return IDMap{}, "", fmt.Errorf("subuid/subgid present for user %q but newuidmap/newgidmap are missing", u.Username)
 		}
-		return IDMap{UIDHostStart: uidStart, GIDHostStart: gidStart, Size: size, UsingSubIDs: true}, "", nil
+
+		warning := "subuid/subgid found but newuidmap/newgidmap are missing; using single-UID/GID fallback mapping (container root -> current user)"
+		return IDMap{UIDHostStart: euid, GIDHostStart: egid, Size: 1, UsingSubIDs: false}, warning, nil
 	}
 
 	if strict {
@@ -82,4 +92,14 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func hasIDMapHelpers() bool {
+	if _, err := exec.LookPath("newuidmap"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("newgidmap"); err != nil {
+		return false
+	}
+	return true
 }

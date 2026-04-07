@@ -4,12 +4,14 @@
 
 runk resolves ID mapping in this order:
 
-1. Use `/etc/subuid` and `/etc/subgid` ranges for the current user when present.
+1. Use `/etc/subuid` and `/etc/subgid` ranges for the current user when present, if `newuidmap` and `newgidmap` are available.
 2. If missing and strict mode is off, fallback to single mapping:
    - container UID 0 -> host effective UID
    - container GID 0 -> host effective GID
    - mapping size = 1
 3. If missing and `--strict-rootless` is on, fail startup.
+
+If subuid/subgid entries exist but `newuidmap`/`newgidmap` are not installed, runk treats this as unusable subid mode and falls back to single-ID mapping unless strict mode is enabled.
 
 ## Kernel preflight
 
