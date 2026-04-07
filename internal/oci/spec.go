@@ -51,8 +51,12 @@ func Build(input RunSpecInput) (*specs.Spec, error) {
 			Env: []string{
 				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				"TERM=xterm",
+				"HOME=/root",
+				"USER=root",
+				"LOGNAME=root",
 			},
-			Cwd: "/",
+			Cwd:      "/",
+			Terminal: true,
 			User: specs.User{
 				UID: 0,
 				GID: 0,

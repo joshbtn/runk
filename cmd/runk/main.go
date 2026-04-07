@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"runk/internal/config"
@@ -50,7 +51,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", preflight.Warning)
 		}
 
-		cmd := []string{"/bin/sh"}
+		var cmd []string
 		if idx := indexOf(args, "--"); idx >= 0 {
 			if idx+1 >= len(args) {
 				exitErr(fmt.Errorf("usage: runk run <image> -- <command> [args...]"))
@@ -62,6 +63,9 @@ func main() {
 		res, err := image.PullAndUnpack(ctx, cfg, args[1])
 		if err != nil {
 			exitErr(err)
+		}
+		if len(cmd) == 0 {
+			cmd = defaultInteractiveCommand(res.RootFS)
 		}
 		if err := runtime.Run(ctx, cfg, preflight.IDMap, args[1], res.RootFS, cmd); err != nil {
 			exitErr(err)
@@ -93,6 +97,14 @@ Global flags:
   --network <mode>         host|none|slirp4netns (default host)
   --strict-rootless        fail instead of fallback when subuid/subgid is missing
 `))
+}
+
+func defaultInteractiveCommand(rootfs string) []string {
+	bashPath := filepath.Join(rootfs, "bin", "bash")
+	if st, err := os.Stat(bashPath); err == nil && !st.IsDir() {
+		return []string{"/bin/bash", "-i"}
+	}
+	return []string{"/bin/sh", "-i"}
 }
 
 func exitErr(err error) {
