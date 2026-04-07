@@ -18,21 +18,35 @@ type Bundle struct {
 	BundleDir string
 }
 
-func CreateBundle(cfg config.Config, imageRef, rootfs string, cmd []string, idMap rootless.IDMap) (Bundle, error) {
-	id := newContainerID(imageRef)
-	bundleDir := filepath.Join(cfg.DataRoot, "bundles", id)
+type BundleInput struct {
+	Config     config.Config
+	ImageRef   string
+	RootFS     string
+	Entrypoint []string
+	Cmd        []string
+	Env        []string
+	WorkingDir string
+	IDMap      rootless.IDMap
+}
+
+func CreateBundle(input BundleInput) (Bundle, error) {
+	id := newContainerID(input.ImageRef)
+	bundleDir := filepath.Join(input.Config.DataRoot, "bundles", id)
 	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
 		return Bundle{}, err
 	}
 
 	spec, err := oci.Build(oci.RunSpecInput{
 		BundleDir:   bundleDir,
-		RootFSPath:  rootfs,
+		RootFSPath:  input.RootFS,
 		ContainerID: id,
 		Hostname:    "runk",
-		Command:     cmd,
-		NetworkMode: cfg.NetworkMode,
-		IDMap:       idMap,
+		Entrypoint:  input.Entrypoint,
+		Cmd:         input.Cmd,
+		Env:         input.Env,
+		WorkingDir:  input.WorkingDir,
+		NetworkMode: input.Config.NetworkMode,
+		IDMap:       input.IDMap,
 	})
 	if err != nil {
 		return Bundle{}, err

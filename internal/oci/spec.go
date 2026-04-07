@@ -15,19 +15,27 @@ type RunSpecInput struct {
 	RootFSPath  string
 	ContainerID string
 	Hostname    string
-	Command     []string
+	Entrypoint  []string
+	Cmd         []string
+	Env         []string
+	WorkingDir  string
 	NetworkMode string
 	IDMap       rootless.IDMap
 }
 
 func Build(input RunSpecInput) (*specs.Spec, error) {
-	if len(input.Command) == 0 {
+	if len(input.Entrypoint) == 0 && len(input.Cmd) == 0 {
 		return nil, fmt.Errorf("empty command")
 	}
 
 	rootPath, err := filepath.Abs(input.RootFSPath)
 	if err != nil {
 		return nil, err
+	}
+
+	cwd := input.WorkingDir
+	if cwd == "" {
+		cwd = "/"
 	}
 
 	ns := []specs.LinuxNamespace{
@@ -48,15 +56,9 @@ func Build(input RunSpecInput) (*specs.Spec, error) {
 			Readonly: false,
 		},
 		Process: &specs.Process{
-			Args: input.Command,
-			Env: []string{
-				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-				"TERM=xterm",
-				"HOME=/root",
-				"USER=root",
-				"LOGNAME=root",
-			},
-			Cwd:      "/",
+			Args:     append(input.Entrypoint, input.Cmd...),
+			Env:      input.Env,
+			Cwd:      cwd,
 			Terminal: true,
 			User: specs.User{
 				UID: 0,
