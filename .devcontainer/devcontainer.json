@@ -1,0 +1,25 @@
+{
+  "name": "runk-go-dev",
+  "build": {
+    "context": "..",
+    "dockerfile": "../docker/dev.Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.toolsManagement.autoUpdate": true,
+        "editor.formatOnSave": true
+      },
+      "extensions": [
+        "golang.Go"
+      ]
+    }
+  },
+  "postCreateCommand": "go mod download",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ]
+}
