@@ -11,21 +11,41 @@ import (
 	"runk/internal/rootless"
 )
 
-func Run(ctx context.Context, cfg config.Config, idMap rootless.IDMap, imageRef, rootfs string, command []string) error {
-	if idMap.Size == 1 && !idMap.UsingSubIDs && hasAptManager(rootfs) {
-		if err := ensureAptCompatibility(rootfs); err != nil {
+type ContainerInput struct {
+	Config     config.Config
+	IDMap      rootless.IDMap
+	ImageRef   string
+	RootFS     string
+	Entrypoint []string
+	Cmd        []string
+	Env        []string
+	WorkingDir string
+}
+
+func Run(ctx context.Context, input ContainerInput) error {
+	if input.IDMap.Size == 1 && !input.IDMap.UsingSubIDs && hasAptManager(input.RootFS) {
+		if err := ensureAptCompatibility(input.RootFS); err != nil {
 			return err
 		}
 		fmt.Fprintln(os.Stderr, "warning: single-ID rootless mode detected; apt sandbox disabled for compatibility")
 	}
 
-	bundle, err := CreateBundle(cfg, imageRef, rootfs, command, idMap)
+	bundle, err := CreateBundle(BundleInput{
+		Config:     input.Config,
+		ImageRef:   input.ImageRef,
+		RootFS:     input.RootFS,
+		Entrypoint: input.Entrypoint,
+		Cmd:        input.Cmd,
+		Env:        input.Env,
+		WorkingDir: input.WorkingDir,
+		IDMap:      input.IDMap,
+	})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = bundle.Cleanup() }()
 
-	stateRoot := filepath.Join(cfg.DataRoot, "runc")
+	stateRoot := filepath.Join(input.Config.DataRoot, "runc")
 	if err := os.MkdirAll(stateRoot, 0o755); err != nil {
 		return fmt.Errorf("create runc state root: %w", err)
 	}
@@ -37,13 +57,13 @@ func Run(ctx context.Context, cfg config.Config, idMap rootless.IDMap, imageRef,
 		"--bundle", bundle.BundleDir,
 		bundle.ID,
 	}
-	cmd := exec.CommandContext(ctx, cfg.RuntimePath, args...)
+	cmd := exec.CommandContext(ctx, input.Config.RuntimePath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		_ = cleanupContainer(ctx, cfg, bundle.ID)
+		_ = cleanupContainer(ctx, input.Config, bundle.ID)
 		return fmt.Errorf("runc run failed: %w", err)
 	}
 	return nil
@@ -51,7 +71,7 @@ func Run(ctx context.Context, cfg config.Config, idMap rootless.IDMap, imageRef,
 
 func cleanupContainer(ctx context.Context, cfg config.Config, id string) error {
 	stateRoot := filepath.Join(cfg.DataRoot, "runc")
-	cmd := exec.CommandContext(ctx, cfg.RuntimePath, "--root", stateRoot, "--rootless", "true", "delete", "--force", id)
+	cmd := exec.CommandContext(ctx, cfg.RuntimePath, "--root", stateRoot, "--rootless", "true", "delete", "--force", id) //nolint:gosec
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

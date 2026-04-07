@@ -22,6 +22,10 @@ type PullResult struct {
 	Image          string
 	RootFS         string
 	SnapshotDriver string
+	Env            []string
+	Entrypoint     []string
+	Cmd            []string
+	WorkingDir     string
 }
 
 func PullAndUnpack(ctx context.Context, cfg config.Config, imageRef string) (PullResult, error) {
@@ -113,16 +117,32 @@ func PullAndUnpack(ctx context.Context, cfg config.Config, imageRef string) (Pul
 	}
 
 	driver := snapshot.SelectDriver()
+	cfgFile, err := img.ConfigFile()
+	if err != nil {
+		return PullResult{}, fmt.Errorf("image config: %w", err)
+	}
 	rec := ImageRecord{
 		Reference:      imageRef,
 		TagSafeName:    filepath.Base(imgDir),
 		LayerDigests:   digests,
 		RootFSPath:     rootfs,
 		SnapshotDriver: driver,
+		Env:            cfgFile.Config.Env,
+		Entrypoint:     cfgFile.Config.Entrypoint,
+		Cmd:            cfgFile.Config.Cmd,
+		WorkingDir:     cfgFile.Config.WorkingDir,
 	}
 	if err := store.SaveRecord(imageRef, rec); err != nil {
 		return PullResult{}, err
 	}
 
-	return PullResult{Image: imageRef, RootFS: rootfs, SnapshotDriver: driver}, nil
+	return PullResult{
+		Image:          imageRef,
+		RootFS:         rootfs,
+		SnapshotDriver: driver,
+		Env:            rec.Env,
+		Entrypoint:     rec.Entrypoint,
+		Cmd:            rec.Cmd,
+		WorkingDir:     rec.WorkingDir,
+	}, nil
 }

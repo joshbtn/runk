@@ -19,6 +19,10 @@ type ImageRecord struct {
 	LayerDigests   []string `json:"layer_digests"`
 	RootFSPath     string   `json:"rootfs_path"`
 	SnapshotDriver string   `json:"snapshot_driver"`
+	Env            []string `json:"env,omitempty"`
+	Entrypoint     []string `json:"entrypoint,omitempty"`
+	Cmd            []string `json:"cmd,omitempty"`
+	WorkingDir     string   `json:"working_dir,omitempty"`
 }
 
 func NewStore(root string) (*Store, error) {

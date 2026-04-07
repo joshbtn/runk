@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Added
+
+- Image config metadata (Env, Entrypoint, Cmd, WorkingDir) is now extracted during `pull` and stored in `record.json`.
+- `runk run` now starts containers using the image's Entrypoint and Cmd with Docker-style composition (`ENTRYPOINT + CMD`).
+- `runk run` now inherits the image's environment variables as the base env for the container process.
+- `runk run` now honours the image's WorkingDir as the container process `cwd`.
+- `--env KEY=VALUE` flag on `runk run` to add or override individual environment variables (repeatable).
+- `--entrypoint <cmd>` flag on `runk run` to override the image entrypoint.
+- CLI trailing args (after `--`) override the image Cmd; `--entrypoint` overrides the image Entrypoint.
+- `BundleInput` struct in `internal/runtime` to carry container spec inputs without a long parameter list.
+- `ContainerInput` struct in `internal/runtime` as the single input type for `runtime.Run()`.
+
 ## [0.1.1] - 2026-04-06
 
 ### Added
