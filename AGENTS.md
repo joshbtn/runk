@@ -59,3 +59,10 @@ Current CLI surface:
 - Keep docs aligned with implemented behavior.
 - Do not claim implemented features that are only planned.
 - Preserve host-default networking unless explicitly changed.
+
+## Release documentation policy
+
+- Do not create standalone release notes files under `docs/`.
+- Record release notes directly in `CHANGELOG.md`.
+- For each release, add or update a version section in `CHANGELOG.md` using Keep a Changelog style headings (`Added`, `Changed`, `Fixed`, etc.).
+- If a standalone release note file is proposed, prefer consolidating that content into `CHANGELOG.md` instead.

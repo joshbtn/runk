@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.1.1] - 2026-04-06
+
+### Added
+
+- ARM64-focused Docker build and package workflows in `Makefile`:
+  - `docker-build-arm64`
+  - `docker-package-arm64`
+- Improved rootless ID-map resolution behavior when subid ranges exist but helper binaries are not available.
+
+### Changed
+
+- Rootless mapping selection now verifies `newuidmap` and `newgidmap` availability before choosing subuid/subgid mapping mode.
+- If subid ranges are present but helper binaries are missing, runk now falls back to single-ID mode (unless strict mode is enabled).
+
+### Fixed
+
+- Avoids unusable subid mapping attempts on constrained hosts without `uidmap` helpers.
+- Improves cross-device testing flow by making it easier to produce Linux ARM64 artifacts for SCP-based deployment.
+
 ## [0.1.0] - 2026-04-06
 
 ### Added
