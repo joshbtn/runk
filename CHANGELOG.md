@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [Unreleased]
+
+### Fixed
+
+- Multi-arch image pull resolution now recurses through nested image indexes and falls back to image config platform metadata when descriptor platform metadata is incomplete, improving Docker-style ARM64 selection.
+
 ## [0.2.0] - 2026-04-07
 
 ### Added

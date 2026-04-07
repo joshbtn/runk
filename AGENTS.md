@@ -64,5 +64,7 @@ Current CLI surface:
 
 - Do not create standalone release notes files under `docs/`.
 - Record release notes directly in `CHANGELOG.md`.
-- For each release, add or update a version section in `CHANGELOG.md` using Keep a Changelog style headings (`Added`, `Changed`, `Fixed`, etc.).
+- Default all in-progress changes to a temporary unversioned `## [Unreleased]` section in `CHANGELOG.md`.
+- Only add or update a versioned section in `CHANGELOG.md` when the user explicitly asks to cut or document a specific version.
+- For an explicit release, add or update a version section in `CHANGELOG.md` using Keep a Changelog style headings (`Added`, `Changed`, `Fixed`, etc.).
 - If a standalone release note file is proposed, prefer consolidating that content into `CHANGELOG.md` instead.
