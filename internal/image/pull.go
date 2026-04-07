@@ -7,9 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"runk/internal/config"
@@ -33,13 +35,20 @@ func PullAndUnpack(ctx context.Context, cfg config.Config, imageRef string) (Pul
 		return PullResult{}, fmt.Errorf("parse image reference: %w", err)
 	}
 
-	img, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	platform := v1.Platform{
+		Architecture: runtime.GOARCH,
+		OS:           runtime.GOOS,
+	}
+	img, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain), remote.WithPlatform(platform))
 	if err != nil {
 		return PullResult{}, fmt.Errorf("pull image: %w", err)
 	}
 
 	imgDir := store.ImageDir(imageRef)
 	rootfs := filepath.Join(imgDir, "rootfs")
+	if err := os.RemoveAll(rootfs); err != nil {
+		return PullResult{}, err
+	}
 	if err := os.MkdirAll(rootfs, 0o755); err != nil {
 		return PullResult{}, err
 	}

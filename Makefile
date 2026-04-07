@@ -21,7 +21,7 @@ PKG_BASENAME := runk-$(VERSION)-$(GOOS)-$(GOARCH)
 PKG_DIR := $(DIST_DIR)/$(PKG_BASENAME)
 PKG_TAR := $(DIST_DIR)/$(PKG_BASENAME).tar.gz
 
-.PHONY: build tidy test smoke package docker-build docker-test docker-shell runc-install runc-download runc-verify runc-clean
+.PHONY: build tidy test smoke package docker-build docker-test docker-shell docker-build-arm64 docker-package-arm64 runc-install runc-download runc-verify runc-clean
 
 build: runc-install
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(BINARY) ./cmd/runk
@@ -71,3 +71,9 @@ docker-test: docker-build
 
 docker-shell: docker-build
 	docker run --rm -it $(DOCKER_SHELL_FLAGS) -v "$(CURDIR):/workspace" -w /workspace $(DEV_IMAGE) bash -c "export PATH=/workspace/bin:/usr/local/go/bin:$$PATH; make build; exec bash -i"
+
+docker-build-arm64: docker-build
+	docker run --rm -v "$(CURDIR):/workspace" -w /workspace $(DEV_IMAGE) bash -c "export PATH=/usr/local/go/bin:$$PATH; make GOOS=linux GOARCH=arm64 build"
+
+docker-package-arm64: docker-build
+	docker run --rm -v "$(CURDIR):/workspace" -w /workspace $(DEV_IMAGE) bash -c "export PATH=/usr/local/go/bin:$$PATH; make GOOS=linux GOARCH=arm64 package"
