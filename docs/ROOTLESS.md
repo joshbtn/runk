@@ -25,7 +25,9 @@ runk checks:
 
 ## Apt compatibility in single-ID mode
 
-When runk falls back to a single UID/GID mapping (size = 1), package managers such as apt cannot switch to their sandbox user (for example `_apt`) and may fail with setgroups/seteuid errors.
+When runk falls back to a single UID/GID mapping (size = 1), apt may fail to switch to its sandbox user (for example `_apt`) and can return setgroups/seteuid errors.
+
+This compatibility behavior is applied only when apt is detected in the rootfs (for example Debian/Ubuntu images). Alpine `apk` images do not use this path.
 
 To keep the PoC usable, runk automatically writes this file inside the container rootfs before `runc run`:
 
@@ -36,6 +38,14 @@ With content:
 - `Acquire::Sandbox::User "root";`
 
 This keeps package signature verification in place but disables apt's privilege-drop sandbox user inside the container.
+
+## DNS file mounts
+
+To improve package-manager networking reliability in rootless runs, runk bind-mounts host resolver files into the container when present:
+
+- `/etc/resolv.conf`
+- `/etc/hosts`
+- `/etc/hostname`
 
 ## Caveats
 

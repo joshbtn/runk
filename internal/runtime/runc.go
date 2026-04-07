@@ -12,7 +12,7 @@ import (
 )
 
 func Run(ctx context.Context, cfg config.Config, idMap rootless.IDMap, imageRef, rootfs string, command []string) error {
-	if idMap.Size == 1 && !idMap.UsingSubIDs {
+	if idMap.Size == 1 && !idMap.UsingSubIDs && hasAptManager(rootfs) {
 		if err := ensureAptCompatibility(rootfs); err != nil {
 			return err
 		}
@@ -69,4 +69,14 @@ func ensureAptCompatibility(rootfs string) error {
 		return fmt.Errorf("write apt compatibility file %q: %w", aptCfgPath, err)
 	}
 	return nil
+}
+
+func hasAptManager(rootfs string) bool {
+	if st, err := os.Stat(filepath.Join(rootfs, "usr", "bin", "apt-get")); err == nil && !st.IsDir() {
+		return true
+	}
+	if st, err := os.Stat(filepath.Join(rootfs, "etc", "apt")); err == nil && st.IsDir() {
+		return true
+	}
+	return false
 }

@@ -2,6 +2,7 @@ package oci
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -100,5 +101,20 @@ func Build(input RunSpecInput) (*specs.Spec, error) {
 			"org.runk.network_mode": input.NetworkMode,
 		},
 	}
+	addBindFileMountIfExists(s, "/etc/resolv.conf")
+	addBindFileMountIfExists(s, "/etc/hosts")
+	addBindFileMountIfExists(s, "/etc/hostname")
 	return s, nil
+}
+
+func addBindFileMountIfExists(spec *specs.Spec, path string) {
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		return
+	}
+	spec.Mounts = append(spec.Mounts, specs.Mount{
+		Destination: path,
+		Type:        "bind",
+		Source:      path,
+		Options:     []string{"rbind", "ro"},
+	})
 }
