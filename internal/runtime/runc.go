@@ -12,6 +12,13 @@ import (
 )
 
 func Run(ctx context.Context, cfg config.Config, idMap rootless.IDMap, imageRef, rootfs string, command []string) error {
+	if idMap.Size == 1 && !idMap.UsingSubIDs {
+		if err := ensureAptCompatibility(rootfs); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "warning: single-ID rootless mode detected; apt sandbox disabled for compatibility")
+	}
+
 	bundle, err := CreateBundle(cfg, imageRef, rootfs, command, idMap)
 	if err != nil {
 		return err
@@ -48,4 +55,18 @@ func cleanupContainer(ctx context.Context, cfg config.Config, id string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func ensureAptCompatibility(rootfs string) error {
+	aptDir := filepath.Join(rootfs, "etc", "apt", "apt.conf.d")
+	if err := os.MkdirAll(aptDir, 0o755); err != nil {
+		return fmt.Errorf("prepare apt compatibility directory %q: %w", aptDir, err)
+	}
+
+	aptCfgPath := filepath.Join(aptDir, "99-runk-rootless")
+	content := []byte("Acquire::Sandbox::User \"root\";\n")
+	if err := os.WriteFile(aptCfgPath, content, 0o644); err != nil {
+		return fmt.Errorf("write apt compatibility file %q: %w", aptCfgPath, err)
+	}
+	return nil
 }

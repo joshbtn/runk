@@ -15,6 +15,7 @@ Implemented baseline:
 
 - CLI commands: pull, run.
 - Rootless preflight checks and mixed ID-map fallback logic.
+- Automatic apt compatibility in single-ID fallback mode.
 - Registry pull with local blob store and rootfs unpack.
 - OCI bundle generation and direct runc invocation.
 - Dev container workflow and Docker-backed Make targets.
