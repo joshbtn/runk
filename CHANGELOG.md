@@ -6,6 +6,10 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Added `cmd/manifestinspect` helper to inspect image/index manifests (default and explicit Accept strategies), enumerate descriptor/platform metadata variants, and surface TODOs for future metadata model capture.
+
 ### Fixed
 
 - Multi-arch image pull resolution now recurses through nested image indexes and falls back to image config platform metadata when descriptor platform metadata is incomplete, improving Docker-style ARM64 selection.

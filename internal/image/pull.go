@@ -1,18 +1,22 @@
 package image
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	remotetransport "github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"runk/internal/config"
@@ -48,7 +52,7 @@ func PullAndUnpack(ctx context.Context, cfg config.Config, imageRef string) (Pul
 	if err != nil {
 		return PullResult{}, fmt.Errorf("pull image: %w", err)
 	}
-	img, err := imageForPlatform(desc, platform)
+	img, err := imageForPlatform(ctx, ref, desc, platform)
 	if err != nil {
 		return PullResult{}, fmt.Errorf("pull image: %w", err)
 	}
@@ -152,7 +156,7 @@ func PullAndUnpack(ctx context.Context, cfg config.Config, imageRef string) (Pul
 	}, nil
 }
 
-func imageForPlatform(desc *remote.Descriptor, platform v1.Platform) (v1.Image, error) {
+func imageForPlatform(ctx context.Context, ref name.Reference, desc *remote.Descriptor, platform v1.Platform) (v1.Image, error) {
 	if desc.MediaType.IsImage() {
 		return desc.Image()
 	}
@@ -164,8 +168,18 @@ func imageForPlatform(desc *remote.Descriptor, platform v1.Platform) (v1.Image, 
 	if err != nil {
 		return nil, err
 	}
+	manifest, err := idx.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+	if len(manifest.Manifests) == 0 {
+		img, err := fallbackImageManifest(ctx, ref)
+		if err == nil {
+			return img, nil
+		}
+	}
 
-	img, err := imageFromIndex(idx, platform)
+	img, err := imageFromIndexManifest(idx, manifest, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +193,13 @@ func imageFromIndex(idx v1.ImageIndex, platform v1.Platform) (v1.Image, error) {
 	manifest, err := idx.IndexManifest()
 	if err != nil {
 		return nil, err
+	}
+	return imageFromIndexManifest(idx, manifest, platform)
+}
+
+func imageFromIndexManifest(idx v1.ImageIndex, manifest *v1.IndexManifest, platform v1.Platform) (v1.Image, error) {
+	if manifest == nil {
+		return nil, nil
 	}
 
 	for _, child := range manifest.Manifests {
@@ -206,6 +227,54 @@ func imageFromIndex(idx v1.ImageIndex, platform v1.Platform) (v1.Image, error) {
 	}
 
 	return nil, nil
+}
+
+func fallbackImageManifest(ctx context.Context, ref name.Reference) (v1.Image, error) {
+	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+	if err != nil {
+		return nil, err
+	}
+	transport, err := remotetransport.NewWithContext(ctx, ref.Context().Registry, auth, remote.DefaultTransport, []string{ref.Context().Scope(remotetransport.PullScope)})
+	if err != nil {
+		return nil, err
+	}
+	requestURL := fmt.Sprintf("%s://%s/v2/%s/manifests/%s", ref.Context().Scheme(), ref.Context().RegistryStr(), ref.Context().RepositoryStr(), ref.Identifier())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", strings.Join([]string{
+		string(types.DockerManifestSchema2),
+		string(types.OCIManifestSchema1),
+	}, ","))
+
+	resp, err := (&http.Client{Transport: transport}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := remotetransport.CheckError(resp, http.StatusOK); err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	digest, _, err := v1.SHA256(bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	if headerDigest := resp.Header.Get("Docker-Content-Digest"); headerDigest != "" {
+		parsed, err := v1.NewHash(headerDigest)
+		if err == nil {
+			digest = parsed
+		}
+	}
+	return remote.Image(
+		ref.Context().Digest(digest.String()),
+		remote.WithAuthFromKeychain(authn.DefaultKeychain),
+		remote.WithContext(ctx),
+	)
 }
 
 func imageFromChild(idx v1.ImageIndex, child v1.Descriptor, platform v1.Platform) (v1.Image, error) {
