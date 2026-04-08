@@ -74,13 +74,20 @@ func Run(ctx context.Context, input ContainerInput) error {
 }
 
 func runWithProot(ctx context.Context, input ContainerInput) error {
-	args := []string{"-0", "-R", input.RootFS}
+	args := []string{"-0", "-r", input.RootFS}
 
 	cwd := input.WorkingDir
 	if cwd == "" {
 		cwd = "/"
 	}
 	args = append(args, "-w", cwd)
+
+	// Keep rootfs identity files from the image; bind only runtime-critical host mounts.
+	addProotBindIfExists(&args, "/dev")
+	addProotBindIfExists(&args, "/proc")
+	addProotBindIfExists(&args, "/sys")
+	addProotBindIfExists(&args, "/tmp")
+	addProotBindIfExists(&args, "/run")
 
 	addProotBindIfExists(&args, "/etc/resolv.conf")
 	addProotBindIfExists(&args, "/etc/hosts")
