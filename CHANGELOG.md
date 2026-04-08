@@ -9,6 +9,14 @@ The format is based on Keep a Changelog.
 ### Added
 
 - Added `cmd/manifestinspect` helper to inspect image/index manifests (default and explicit Accept strategies), enumerate descriptor/platform metadata variants, and surface TODOs for future metadata model capture.
+- Added `--single-user-fallback` global flag to preserve legacy single-user rootless fallback behavior when subuid/subgid mappings are unavailable.
+- Added pinned `proot` sidecar provisioning in build flow (`make build`) with checksum verification, and included `bin/proot` in packaged release tarballs.
+
+### Changed
+
+- Rootless fallback default now prefers `proot` when subuid/subgid mapping cannot be used.
+- If `proot` fallback is selected by default but `proot` is missing, `runk run` now fails with remediation guidance to install `proot` or use `--single-user-fallback`.
+- `--strict-rootless` now explicitly disables all fallback modes when subuid/subgid mappings are unavailable.
 
 ### Fixed
 

@@ -128,7 +128,8 @@ Global flags:
   --data-root <path>       (default ~/.local/share/runk)
   --runtime <path>         (default runc in PATH)
   --network <mode>         host|none|slirp4netns (default host)
-  --strict-rootless        fail instead of fallback when subuid/subgid is missing
+	--strict-rootless        fail instead of fallback when subuid/subgid is missing
+	--single-user-fallback   use legacy single-user fallback instead of default proot fallback
 
 Run flags:
   --env KEY=VALUE          set or override an environment variable (repeatable)

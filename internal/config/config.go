@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	DataRoot       string
-	RuntimePath    string
-	NetworkMode    string
-	StrictRootless bool
+	DataRoot           string
+	RuntimePath        string
+	NetworkMode        string
+	StrictRootless     bool
+	SingleUserFallback bool
 }
 
 func Parse(args []string) (Config, []string, error) {
@@ -29,7 +30,8 @@ func Parse(args []string) (Config, []string, error) {
 	defaultRuntime := defaultRuntimePath()
 	fs.StringVar(&cfg.RuntimePath, "runtime", defaultRuntime, "OCI runtime binary path")
 	fs.StringVar(&cfg.NetworkMode, "network", "host", "network mode: host|none|slirp4netns")
-	fs.BoolVar(&cfg.StrictRootless, "strict-rootless", false, "disable single-UID fallback")
+	fs.BoolVar(&cfg.StrictRootless, "strict-rootless", false, "disable all fallback modes when subuid/subgid mapping is unavailable")
+	fs.BoolVar(&cfg.SingleUserFallback, "single-user-fallback", false, "use legacy single-user fallback instead of default proot fallback")
 
 	if err := fs.Parse(args); err != nil {
 		return cfg, nil, err

@@ -15,22 +15,38 @@ type IDMap struct {
 	GIDHostStart int
 	Size         int
 	UsingSubIDs  bool
+	Strategy     string
 }
 
-func ResolveIDMap(strict bool) (IDMap, string, error) {
-	u, err := user.Current()
+const (
+	StrategySubID      = "subid"
+	StrategySingleUser = "single-user"
+	StrategyProot      = "proot"
+)
+
+var (
+	currentUserFn     = user.Current
+	geteuidFn         = os.Geteuid
+	getegidFn         = os.Getegid
+	parseSubIDFileFn  = parseSubIDFile
+	hasIDMapHelpersFn = hasIDMapHelpers
+	lookPathFn        = exec.LookPath
+)
+
+func ResolveIDMap(strict bool, singleUserFallback bool) (IDMap, string, error) {
+	u, err := currentUserFn()
 	if err != nil {
 		return IDMap{}, "", fmt.Errorf("resolve current user: %w", err)
 	}
 
-	euid := os.Geteuid()
-	egid := os.Getegid()
+	euid := geteuidFn()
+	egid := getegidFn()
 
-	uidStart, uidCount, uidOK := parseSubIDFile("/etc/subuid", u.Username)
-	gidStart, gidCount, gidOK := parseSubIDFile("/etc/subgid", u.Username)
+	uidStart, uidCount, uidOK := parseSubIDFileFn("/etc/subuid", u.Username)
+	gidStart, gidCount, gidOK := parseSubIDFileFn("/etc/subgid", u.Username)
 
 	if uidOK && gidOK {
-		if hasIDMapHelpers() {
+		if hasIDMapHelpersFn() {
 			size := min(uidCount, gidCount)
 			if size < 1 {
 				return IDMap{}, "", fmt.Errorf("invalid subid range for user %q", u.Username)
@@ -38,23 +54,34 @@ func ResolveIDMap(strict bool) (IDMap, string, error) {
 			if size > 65536 {
 				size = 65536
 			}
-			return IDMap{UIDHostStart: uidStart, GIDHostStart: gidStart, Size: size, UsingSubIDs: true}, "", nil
+			return IDMap{UIDHostStart: uidStart, GIDHostStart: gidStart, Size: size, UsingSubIDs: true, Strategy: StrategySubID}, "", nil
 		}
 
 		if strict {
-			return IDMap{}, "", fmt.Errorf("subuid/subgid present for user %q but newuidmap/newgidmap are missing", u.Username)
+			return IDMap{}, "", fmt.Errorf("subuid/subgid present for user %q but newuidmap/newgidmap are missing and strict mode is enabled", u.Username)
 		}
-
-		warning := "subuid/subgid found but newuidmap/newgidmap are missing; using single-UID/GID fallback mapping (container root -> current user)"
-		return IDMap{UIDHostStart: euid, GIDHostStart: egid, Size: 1, UsingSubIDs: false}, warning, nil
+		return resolveFallback(euid, egid, singleUserFallback, "subuid/subgid found but newuidmap/newgidmap are missing")
 	}
 
 	if strict {
 		return IDMap{}, "", fmt.Errorf("missing subuid/subgid for user %q and strict mode enabled", u.Username)
 	}
 
-	warning := "subuid/subgid not found; using single-UID/GID fallback mapping (container root -> current user)"
-	return IDMap{UIDHostStart: euid, GIDHostStart: egid, Size: 1, UsingSubIDs: false}, warning, nil
+	return resolveFallback(euid, egid, singleUserFallback, "subuid/subgid not found")
+}
+
+func resolveFallback(euid, egid int, singleUserFallback bool, reason string) (IDMap, string, error) {
+	if singleUserFallback {
+		warning := reason + "; using single-user fallback mapping (container root -> current user)"
+		return IDMap{UIDHostStart: euid, GIDHostStart: egid, Size: 1, UsingSubIDs: false, Strategy: StrategySingleUser}, warning, nil
+	}
+
+	if _, err := lookPathFn("proot"); err != nil {
+		return IDMap{}, "", fmt.Errorf("%s; default proot fallback requires 'proot' binary (install proot or retry with --single-user-fallback)", reason)
+	}
+
+	warning := reason + "; using proot fallback by default"
+	return IDMap{UIDHostStart: euid, GIDHostStart: egid, Size: 1, UsingSubIDs: false, Strategy: StrategyProot}, warning, nil
 }
 
 func parseSubIDFile(path, userName string) (start int, count int, ok bool) {
@@ -95,10 +122,10 @@ func min(a, b int) int {
 }
 
 func hasIDMapHelpers() bool {
-	if _, err := exec.LookPath("newuidmap"); err != nil {
+	if _, err := lookPathFn("newuidmap"); err != nil {
 		return false
 	}
-	if _, err := exec.LookPath("newgidmap"); err != nil {
+	if _, err := lookPathFn("newgidmap"); err != nil {
 		return false
 	}
 	return true

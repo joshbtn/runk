@@ -16,21 +16,23 @@ type PreflightResult struct {
 }
 
 func Preflight(cfg config.Config) (PreflightResult, error) {
-	if _, err := exec.LookPath(cfg.RuntimePath); err != nil {
-		return PreflightResult{}, fmt.Errorf("runtime not found (%s): %w (hint: run 'make runc-install' to provision sidecar)", cfg.RuntimePath, err)
-	}
-
 	if runtime.GOOS != "linux" {
 		return PreflightResult{}, fmt.Errorf("runk PoC currently supports linux hosts only")
 	}
 
-	if err := checkUserNS(); err != nil {
+	idMap, warning, err := ResolveIDMap(cfg.StrictRootless, cfg.SingleUserFallback)
+	if err != nil {
 		return PreflightResult{}, err
 	}
 
-	idMap, warning, err := ResolveIDMap(cfg.StrictRootless)
-	if err != nil {
-		return PreflightResult{}, err
+	if idMap.Strategy != StrategyProot {
+		if _, err := exec.LookPath(cfg.RuntimePath); err != nil {
+			return PreflightResult{}, fmt.Errorf("runtime not found (%s): %w (hint: run 'make runc-install' to provision sidecar)", cfg.RuntimePath, err)
+		}
+
+		if err := checkUserNS(); err != nil {
+			return PreflightResult{}, err
+		}
 	}
 
 	if cfg.NetworkMode == "slirp4netns" {

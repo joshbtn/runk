@@ -5,13 +5,14 @@
 runk resolves ID mapping in this order:
 
 1. Use `/etc/subuid` and `/etc/subgid` ranges for the current user when present, if `newuidmap` and `newgidmap` are available.
-2. If missing and strict mode is off, fallback to single mapping:
-   - container UID 0 -> host effective UID
-   - container GID 0 -> host effective GID
-   - mapping size = 1
+2. If unavailable and strict mode is off:
+   - use `proot` fallback by default
+   - or use legacy single-user mapping when `--single-user-fallback` is set
 3. If missing and `--strict-rootless` is on, fail startup.
 
-If subuid/subgid entries exist but `newuidmap`/`newgidmap` are not installed, runk treats this as unusable subid mode and falls back to single-ID mapping unless strict mode is enabled.
+If subuid/subgid entries exist but `newuidmap`/`newgidmap` are not installed, runk treats this as unusable subid mode and applies the same fallback logic unless strict mode is enabled.
+
+If default `proot` fallback is selected but `proot` is not installed, runk fails with a remediation hint to install `proot` or use `--single-user-fallback`.
 
 ## Kernel preflight
 
@@ -25,9 +26,9 @@ runk checks:
 - Default mode: `host`
 - `slirp4netns` mode currently checks for `slirp4netns` binary and reserves integration hooks.
 
-## Apt compatibility in single-ID mode
+## Apt compatibility in fallback mode
 
-When runk falls back to a single UID/GID mapping (size = 1), apt may fail to switch to its sandbox user (for example `_apt`) and can return setgroups/seteuid errors.
+When runk falls back (default `proot` mode or legacy single-user mapping), apt may fail to switch to its sandbox user (for example `_apt`) and can return setgroups/seteuid errors.
 
 This compatibility behavior is applied only when apt is detected in the rootfs (for example Debian/Ubuntu images). Alpine `apk` images do not use this path.
 

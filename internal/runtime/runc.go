@@ -27,7 +27,11 @@ func Run(ctx context.Context, input ContainerInput) error {
 		if err := ensureAptCompatibility(input.RootFS); err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "warning: single-ID rootless mode detected; apt sandbox disabled for compatibility")
+		fmt.Fprintln(os.Stderr, "warning: rootless fallback mode detected; apt sandbox disabled for compatibility")
+	}
+
+	if input.IDMap.Strategy == rootless.StrategyProot {
+		return runWithProot(ctx, input)
 	}
 
 	bundle, err := CreateBundle(BundleInput{
@@ -67,6 +71,44 @@ func Run(ctx context.Context, input ContainerInput) error {
 		return fmt.Errorf("runc run failed: %w", err)
 	}
 	return nil
+}
+
+func runWithProot(ctx context.Context, input ContainerInput) error {
+	args := []string{"-0", "-R", input.RootFS}
+
+	cwd := input.WorkingDir
+	if cwd == "" {
+		cwd = "/"
+	}
+	args = append(args, "-w", cwd)
+
+	addProotBindIfExists(&args, "/etc/resolv.conf")
+	addProotBindIfExists(&args, "/etc/hosts")
+	addProotBindIfExists(&args, "/etc/hostname")
+
+	processArgs := append([]string{}, input.Entrypoint...)
+	processArgs = append(processArgs, input.Cmd...)
+	if len(processArgs) == 0 {
+		return fmt.Errorf("empty command")
+	}
+
+	args = append(args, processArgs...)
+	cmd := exec.CommandContext(ctx, "proot", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = input.Env
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("proot run failed: %w", err)
+	}
+	return nil
+}
+
+func addProotBindIfExists(args *[]string, path string) {
+	if st, err := os.Stat(path); err == nil && !st.IsDir() {
+		*args = append(*args, "-b", path+":"+path)
+	}
 }
 
 func cleanupContainer(ctx context.Context, cfg config.Config, id string) error {
