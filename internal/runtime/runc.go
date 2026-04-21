@@ -23,11 +23,11 @@ type ContainerInput struct {
 }
 
 func Run(ctx context.Context, input ContainerInput) error {
-	if input.IDMap.Size == 1 && !input.IDMap.UsingSubIDs && hasAptManager(input.RootFS) {
+	if input.IDMap.Strategy == rootless.StrategySingleUser && hasAptManager(input.RootFS) {
 		if err := ensureAptCompatibility(input.RootFS); err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "warning: rootless fallback mode detected; apt sandbox disabled for compatibility")
+		fmt.Fprintln(os.Stderr, "warning: single-user fallback mode detected; apt sandbox disabled for compatibility")
 	}
 
 	if input.IDMap.Strategy == rootless.StrategyProot {
